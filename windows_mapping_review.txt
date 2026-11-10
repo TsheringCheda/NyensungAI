@@ -1,0 +1,263 @@
+﻿
+  endpoint_agent\windows_event_monitor.py:86:    
+"System": SYSTEM_EVENTS,
+  endpoint_agent\windows_event_monitor.py:87:    
+"Microsoft-Windows-Windows 
+Defender/Operational": DEFENDER_EVENTS,
+  endpoint_agent\windows_event_monitor.py:88:}
+  endpoint_agent\windows_event_monitor.py:89:
+  endpoint_agent\windows_event_monitor.py:90:
+> endpoint_agent\windows_event_monitor.py:91:def 
+parse_event_xml(xml_data):
+  endpoint_agent\windows_event_monitor.py:92:    
+"""Parse a Windows Event XML record."""
+  endpoint_agent\windows_event_monitor.py:93:
+  endpoint_agent\windows_event_monitor.py:94:    
+root = ET.fromstring(xml_data)
+  endpoint_agent\windows_event_monitor.py:95:
+  endpoint_agent\windows_event_monitor.py:96:    
+system = root.find("ev:System", NS)
+  endpoint_agent\windows_event_monitor.py:97:
+  endpoint_agent\windows_event_monitor.py:98:    
+if system is None:
+  endpoint_agent\windows_event_monitor.py:99:    
+    raise ValueError("Missing Windows Event 
+System section")
+  endpoint_agent\windows_event_monitor.py:100:
+  endpoint_agent\windows_event_monitor.py:101:   
+ def text(path, default=""):
+  endpoint_agent\windows_event_monitor.py:102:   
+     node = system.find(path, NS)
+  endpoint_agent\windows_event_monitor.py:103:   
+     return (node.text or "").strip() if node is 
+not None else default
+  endpoint_agent\windows_event_monitor.py:104:
+> endpoint_agent\windows_event_monitor.py:105:   
+ event_id = int(text("ev:EventID", "0"))
+  endpoint_agent\windows_event_monitor.py:106:   
+ record_id = int(text("ev:EventRecordID", "0"))
+  endpoint_agent\windows_event_monitor.py:107:
+  endpoint_agent\windows_event_monitor.py:108:   
+ created = system.find("ev:TimeCreated", NS)
+  endpoint_agent\windows_event_monitor.py:109:   
+ occurred_at = (
+  endpoint_agent\windows_event_monitor.py:110:   
+     created.attrib.get("SystemTime")
+  endpoint_agent\windows_event_monitor.py:111:   
+     if created is not None
+  endpoint_agent\windows_event_monitor.py:112:   
+     else None
+  endpoint_agent\windows_event_monitor.py:113:   
+ )
+  endpoint_agent\windows_event_monitor.py:114:
+  endpoint_agent\windows_event_monitor.py:115:   
+ fields = {}
+  endpoint_agent\windows_event_monitor.py:116:
+  endpoint_agent\windows_event_monitor.py:117:   
+ for node in 
+root.findall(".//ev:EventData/ev:Data", NS):
+  endpoint_agent\windows_event_monitor.py:133:   
+         return value
+  endpoint_agent\windows_event_monitor.py:134:
+  endpoint_agent\windows_event_monitor.py:135:   
+ return default
+  endpoint_agent\windows_event_monitor.py:136:
+  endpoint_agent\windows_event_monitor.py:137:
+> 
+endpoint_agent\windows_event_monitor.py:138:def 
+normalize_windows_event(
+  endpoint_agent\windows_event_monitor.py:139:   
+ xml_data,
+  endpoint_agent\windows_event_monitor.py:140:   
+ channel,
+  endpoint_agent\windows_event_monitor.py:141:   
+ computer_name=None,
+  endpoint_agent\windows_event_monitor.py:142:   
+ agent_name="NyensungAI-Windows-Agent",
+  endpoint_agent\windows_event_monitor.py:143:):
+  endpoint_agent\windows_event_monitor.py:144:   
+ """Normalize supported Windows events into 
+NyensungAI telemetry."""
+  endpoint_agent\windows_event_monitor.py:145:
+  endpoint_agent\windows_event_monitor.py:146:   
+ event_id, record_id, fields, occurred_at = 
+parse_event_xml(xml_data)
+  endpoint_agent\windows_event_monitor.py:147:
+  endpoint_agent\windows_event_monitor.py:148:   
+ mapping = CHANNEL_MAP.get(channel, {})
+  endpoint_agent\windows_event_monitor.py:149:   
+ spec = mapping.get(event_id)
+  endpoint_agent\windows_event_monitor.py:150:
+  endpoint_agent\windows_event_monitor.py:193:
+  endpoint_agent\windows_event_monitor.py:194:   
+ if source_ip in {"127.0.0.1", "::1", "-"}:
+  endpoint_agent\windows_event_monitor.py:195:   
+     source_ip = None
+  endpoint_agent\windows_event_monitor.py:196:
+  endpoint_agent\windows_event_monitor.py:197:   
+ # Ignore routine Windows service logons.
+> endpoint_agent\windows_event_monitor.py:198:   
+ if event_id == 4624 and _pick(fields, 
+"LogonType") == "5":
+  endpoint_agent\windows_event_monitor.py:199:   
+     return None
+  endpoint_agent\windows_event_monitor.py:200:
+  endpoint_agent\windows_event_monitor.py:201:   
+ # Retain executable basename only. Do not 
+collect command lines.
+  endpoint_agent\windows_event_monitor.py:202:   
+ process = _pick(
+  endpoint_agent\windows_event_monitor.py:203:   
+     fields,
+  endpoint_agent\windows_event_monitor.py:204:   
+     "NewProcessName",
+  endpoint_agent\windows_event_monitor.py:205:   
+     "ProcessName",
+  endpoint_agent\windows_event_monitor.py:206:   
+     "Image",
+  endpoint_agent\windows_event_monitor.py:207:   
+ )
+  endpoint_agent\windows_event_monitor.py:208:
+  endpoint_agent\windows_event_monitor.py:209:   
+ if process:
+  endpoint_agent\windows_event_monitor.py:210:   
+     process = process.replace("\\", 
+"/").rsplit("/", 1)[-1][:180]
+  endpoint_agent\windows_event_monitor.py:222:   
+     "TargetAccountName",
+  endpoint_agent\windows_event_monitor.py:223:   
+     "ServiceName",
+  endpoint_agent\windows_event_monitor.py:224:   
+     "GroupName",
+  endpoint_agent\windows_event_monitor.py:225:   
+ )
+  endpoint_agent\windows_event_monitor.py:226:
+> endpoint_agent\windows_event_monitor.py:227:   
+ details = [
+  endpoint_agent\windows_event_monitor.py:228:   
+     f"{label} (Windows Event ID {event_id}) on 
+{computer_name}."
+  endpoint_agent\windows_event_monitor.py:229:   
+ ]
+  endpoint_agent\windows_event_monitor.py:230:
+  endpoint_agent\windows_event_monitor.py:231:   
+ if username:
+> endpoint_agent\windows_event_monitor.py:232:   
+     details.append(f"Account: {username}.")
+  endpoint_agent\windows_event_monitor.py:233:
+  endpoint_agent\windows_event_monitor.py:234:   
+ if target and target != username:
+> endpoint_agent\windows_event_monitor.py:235:   
+     details.append(f"Target: {target}.")
+  endpoint_agent\windows_event_monitor.py:236:
+  endpoint_agent\windows_event_monitor.py:237:   
+ if source_ip:
+> endpoint_agent\windows_event_monitor.py:238:   
+     details.append(f"Source IP: {source_ip}.")
+  endpoint_agent\windows_event_monitor.py:239:
+  endpoint_agent\windows_event_monitor.py:240:   
+ if process and event_id == 4688:
+> endpoint_agent\windows_event_monitor.py:241:   
+     details.append(f"Process image: {process}.")
+  endpoint_agent\windows_event_monitor.py:242:
+  endpoint_agent\windows_event_monitor.py:243:   
+ if threat:
+> endpoint_agent\windows_event_monitor.py:244:   
+     details.append(f"Defender threat: 
+{threat[:180]}.")
+  endpoint_agent\windows_event_monitor.py:245:
+  endpoint_agent\windows_event_monitor.py:246:   
+ # Additional logout information
+  endpoint_agent\windows_event_monitor.py:247:   
+ if event_id in (4634, 4647):
+> endpoint_agent\windows_event_monitor.py:248:   
+     logon_type = _pick(fields, "LogonType")
+  endpoint_agent\windows_event_monitor.py:249:   
+     logon_id = _pick(
+  endpoint_agent\windows_event_monitor.py:250:   
+         fields,
+  endpoint_agent\windows_event_monitor.py:251:   
+         "TargetLogonId",
+  endpoint_agent\windows_event_monitor.py:252:   
+         "SubjectLogonId",
+  endpoint_agent\windows_event_monitor.py:253:   
+     )
+  endpoint_agent\windows_event_monitor.py:254:
+  endpoint_agent\windows_event_monitor.py:255:   
+     if logon_type:
+> endpoint_agent\windows_event_monitor.py:256:   
+         details.append(f"Logon type: 
+{logon_type}.")
+  endpoint_agent\windows_event_monitor.py:257:
+  endpoint_agent\windows_event_monitor.py:258:   
+     if logon_id:
+> endpoint_agent\windows_event_monitor.py:259:   
+         details.append(f"Logon ID: {logon_id}.")
+  endpoint_agent\windows_event_monitor.py:260:
+> endpoint_agent\windows_event_monitor.py:261:   
+ # Failed authentication details
+  endpoint_agent\windows_event_monitor.py:262:   
+ if event_id == 4625:
+> endpoint_agent\windows_event_monitor.py:263:   
+     status = _pick(fields, "Status")
+  endpoint_agent\windows_event_monitor.py:264:
+> endpoint_agent\windows_event_monitor.py:265:   
+     if status:
+> endpoint_agent\windows_event_monitor.py:266:   
+         details.append(f"Logon status: 
+{status}.")
+  endpoint_agent\windows_event_monitor.py:267:
+> endpoint_agent\windows_event_monitor.py:268:   
+ details.append(f"Channel: {channel}. Record ID: 
+{record_id}.")
+  endpoint_agent\windows_event_monitor.py:269:
+  endpoint_agent\windows_event_monitor.py:270:   
+ if occurred_at:
+> endpoint_agent\windows_event_monitor.py:271:   
+     details.append(f"Source event time: 
+{occurred_at}.")
+  endpoint_agent\windows_event_monitor.py:272:
+  endpoint_agent\windows_event_monitor.py:273:   
+ # Stable request ID prevents duplicate event 
+submissions.
+  endpoint_agent\windows_event_monitor.py:274:   
+ request_id = str(
+  endpoint_agent\windows_event_monitor.py:275:   
+     uuid5(
+  endpoint_agent\windows_event_monitor.py:276:   
+         NAMESPACE_URL,
+  endpoint_agent\windows_event_monitor.py:277:   
+         f"nyensungai:{computer_name}:{channel}:{
+record_id}",
+  endpoint_agent\windows_event_monitor.py:278:   
+     )
+  endpoint_agent\windows_event_monitor.py:279:   
+ )
+  endpoint_agent\windows_event_monitor.py:280:
+  endpoint_agent\windows_event_monitor.py:281:   
+ return {
+  endpoint_agent\windows_event_monitor.py:282:   
+     "event_type": event_type,
+  endpoint_agent\windows_event_monitor.py:283:   
+     "source": f"{agent_name} - {computer_name} 
+[{channel}]",
+  endpoint_agent\windows_event_monitor.py:284:   
+     "source_ip": source_ip,
+  endpoint_agent\windows_event_monitor.py:285:   
+     "username": username,
+> endpoint_agent\windows_event_monitor.py:286:   
+     "description": " ".join(details),
+  endpoint_agent\windows_event_monitor.py:287:   
+     "severity": severity,
+  endpoint_agent\windows_event_monitor.py:288:   
+     "risk_score": risk,
+> endpoint_agent\windows_event_monitor.py:289:   
+     "status": "NEW",
+  endpoint_agent\windows_event_monitor.py:290:   
+     "is_suspicious": suspicious,
+  endpoint_agent\windows_event_monitor.py:291:   
+     "request_id": request_id,
+  endpoint_agent\windows_event_monitor.py:292:   
+ }
+
+

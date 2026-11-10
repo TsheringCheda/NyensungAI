@@ -1,0 +1,4 @@
+pywin32
+requests
+python-dotenv
+psutil>=6.0,<8.0
